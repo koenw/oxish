@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: ["main"]
+    tags: ['v*']
   pull_request:
   schedule:
     - cron: "34 6 * * 5"
@@ -86,3 +87,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
+
+  release:
+    strategy:
+      matrix:
+        os: [ubuntu-26.04, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - run: cargo build --release
+      - name: Create the output directory
+        run: mkdir output
+      - name: Copy oxish-server-ubuntu to output directory
+        run: cp target/release/oxish-server output/oxish-server-ubuntu
+      - name: Copy oxish-session-ubuntu to output directory
+        run: cp target/release/oxish-session output/oxish-session-ubuntu
+      - name: Create the release
+        uses: softprops/action-gh-release@v3
+        if: github.ref_type == 'tag'
+        with:
+          working_directory: output
+          files: |
+            oxish-server-${{ matrix.os }}
+            oxish-session-${{ matrix.os }}
